@@ -35,6 +35,28 @@ class CreateTaskRequest(BaseModel):
     task_name: str = Field(..., min_length=1, description="任务名称")
 
 
+class CreateDatasetPayload(BaseModel):
+    dataset_id: str
+    file_name: str
+    file_type: str
+    extraction_mode: str
+    source_platform: str
+    product_line: str | None = None
+    date_start: date | None = None
+    date_end: date | None = None
+    sample_count: int
+    raw_text: str | None = None
+
+
+class CreateTaskPayload(CreateTaskRequest):
+    task_id: str
+    status: TaskStatus
+    sample_count: int
+    source_platform: str
+    product_line: str | None = None
+    created_at: datetime
+
+
 class CreateTaskResponse(BaseModel):
     task_id: str
     dataset_id: str
