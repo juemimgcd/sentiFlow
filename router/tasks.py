@@ -8,7 +8,10 @@ from crud.task_crud import create_task, get_task_detail
 from services.task_service import task_service
 from shcemas.task_schema import CreateTaskRequest, ImportMetadata, TaskDetailResponse, TaskStatus
 from utils.response import error_response, success_response
-
+from crud.dataset_crud import get_dataset_by_id
+from crud.task_crud import get_task_detail
+from services.preprocess_service import preprocess_service
+from utils.response import error_response, success_response
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 
@@ -62,3 +65,21 @@ async def get_task_detail_endpoint(task_id: str, db=Depends(get_db)):
         created_at=task.created_at,
     )
     return success_response(data=data.model_dump(), message="task detail")
+
+
+
+
+@router.post("/{task_id}/preprocess")
+async def preprocess_task(task_id: str, db=Depends(get_db)):
+    task = await get_task_detail(session=db, task_id=task_id)
+    if task is None:
+        return error_response(message="task not found", code=1, data=None)
+
+    dataset = await get_dataset_by_id(session=db, dataset_id=task.dataset_id)
+    if dataset is None:
+        return error_response(message="dataset not found", code=1, data=None)
+
+    response = preprocess_service.run_preprocess(task_id=task_id, dataset=dataset)
+    return success_response(data=response.model_dump(), message="preprocess completed")
+
+
