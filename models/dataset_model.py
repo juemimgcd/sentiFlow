@@ -20,3 +20,4 @@ class Dataset(Base):
     sample_count: Mapped[int] = mapped_column(Integer, default=0)
     raw_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
