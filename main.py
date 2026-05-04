@@ -16,8 +16,6 @@ async def lifespan(_: FastAPI):
     setup_logger()
     app_logger.bind(module="system").info("application starts")
     try:
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
         yield
     finally:
         app_logger.bind(module="system").info("application ends")
