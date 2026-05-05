@@ -850,13 +850,40 @@ def is_meaningful_text(text: str, min_length: int = 2) -> bool:
 ### `services/preprocess_service.py` 练手骨架版
 
 ```python
+from models.dataset_model import Dataset
+from shcemas.preprocess_schema import RawSample
+
+
 class PreprocessService:
-    def run_preprocess(self, dataset):
+    def load_raw_samples(self, dataset: Dataset):
         # 你要做的事：
-        # 1. 读取 dataset
+        # 1. 从 dataset 中拿到原始文本载体
         # 2. 拆成 raw samples
-        # 3. 做清洗和标准化
-        # 4. 统计有效 / 无效样本
+        # 3. 给每条 raw sample 保留基础字段
+        raise NotImplementedError
+
+    def normalize_sample(self, dataset: Dataset, sample: RawSample):
+        # 你要做的事：
+        # 1. 清洗文本
+        # 2. 判断是否有效
+        # 3. 生成标准样本
+        # 4. 保留 content_raw / content_clean / invalid_reason
+        raise NotImplementedError
+
+    def build_summary(self, normalized_samples):
+        # 你要做的事：
+        # 1. 统计有效样本数
+        # 2. 统计无效样本数
+        # 3. 统计无效原因分布
+        # 4. 生成预处理摘要
+        raise NotImplementedError
+
+    def run_preprocess(self, task_id: str, dataset: Dataset):
+        # 你要做的事：
+        # 1. 先读取 raw samples
+        # 2. 再逐条做标准化
+        # 3. 再生成预处理摘要
+        # 4. 最后组装统一响应
         raise NotImplementedError
 ```
 
@@ -1186,4 +1213,3 @@ dataset
 ```text
 先把原始样本整理成统一、稳定、可复用的标准样本，Day 6 的情感分析主链才不会直接暴露在脏输入上。
 ```
-
