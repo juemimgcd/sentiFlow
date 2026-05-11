@@ -3,7 +3,7 @@
 ## 今天的总目标
 
 - 把 Day 3 已经立住的 FastAPI 骨架，真正接上一条可用的“文件接入 -> dataset -> 创建任务”主链路
-- 采用“受控多格式白名单 + MarkItDown adapter”的导入方案，而不是把上传能力写死成只支持 CSV / JSON
+- 采用“CSV / JSON 原生解析 + 其它格式交给 MarkItDown 尝试解析”的导入方案，而不是把上传能力写死成固定白名单
 - 让来源平台、时间范围、产品线这些元信息有明确落点
 - 明确“导入一批文本”和“创建一个分析任务”不是同一个动作
 - 为 Day 5 的文本预处理与标准化准备稳定输入
@@ -41,7 +41,7 @@ source file
 
 - `import` 负责把外部文件变成系统内部可消费输入
 - `content extraction` 负责把不同文件格式统一成最小内部载体
-- `supported file types` 必须是白名单，不是无限制上传
+- 上传入口不再做固定格式白名单，解析失败时再给出明确错误
 - `task` 负责把内部输入变成可追踪执行对象
 - Day 4 的终点是“可进入预处理”，不是“分析结果产出”
 
@@ -180,7 +180,7 @@ Day 4 最容易犯的错误就是：
 导入
 校验
 抽取
-白名单
+adapter 分流
 元信息
 任务载体
 动作分离
@@ -251,7 +251,7 @@ SentiFlow 就不再只是“有几个接口壳子”，
 导入解决的是：
 
 - 文件能不能读
-- 这个格式是否在白名单里
+- 这个格式应该走原生解析还是 MarkItDown
 - 内容能不能被可靠抽出来
 - 样本能不能归一化出来
 - 字段够不够用
@@ -351,26 +351,27 @@ Day 5 就只能反复回头拆 Day 4 接口。
 ### 外部输入层
 
 长期看，外部文件类型可能会越来越多。  
-但 Day 4 不应该把它理解成“什么都能传”，而应该理解成：
+现在既然已经接了 MarkItDown，Day 4 就不应该再把上传入口卡死在固定白名单上，而应该理解成：
 
 ```text
 允许上传
-= 明确支持的格式白名单
-= 当前环境可用的抽取依赖
+= CSV / JSON 走原生解析
+= 其它格式交给 MarkItDown 尝试抽取
+= 解析失败时返回清晰错误
 = 大小和安全检查通过
 ```
 
 ### Day 4 当前落地层
 
-Day 4 可以先把支持口径升级成一组受控白名单，例如：
+Day 4 可以把支持口径升级成：
 
-- CSV
-- JSON
-- PDF
-- DOCX
-- PPTX
-- XLSX
-- HTML
+```text
+CSV / JSON
+-> native adapter
+
+其它上传文件
+-> MarkItDown adapter
+```
 
 不要今天就扩成：
 
@@ -407,37 +408,32 @@ source file
 这样：
 
 - CSV / JSON 可以继续走原生 adapter
-- PDF / DOCX / PPTX / XLSX / HTML 可以走 MarkItDown adapter
-- 后面新增格式时，只是扩白名单和 adapter，不是推翻 Day 4
+- 其它格式可以交给 MarkItDown adapter 尝试解析
+- 后面新增更专门的格式处理时，只是增加 adapter，不是推翻 Day 4
 
 ### Day 4 的格式策略应该怎么说
 
 更合理的说法不是：
 
 ```text
-用户上传什么都可以
+系统保证任何文件都能解析成功
 ```
 
 而是：
 
 ```text
-用户可以上传白名单中的受支持格式
-```
-
-例如：
-
-```text
-.csv .json .pdf .docx .pptx .xlsx .html
+用户可以上传文件，系统优先用原生 CSV / JSON 解析，否则交给 MarkItDown 尝试抽取文本
 ```
 
 ### 为什么仍然要保留限制
 
 因为即使用了 MarkItDown，系统仍然要控制：
 
-- 哪些扩展名被允许
-- 当前环境是否安装了该格式所需依赖
 - 文件大小是否超限
 - 转换失败时返回什么错误
+- 当前环境是否安装了 MarkItDown 所需依赖
+- 文件大小是否超限
+- 是否允许 ZIP / 嵌套包这类高风险输入
 - 是否允许 ZIP、嵌套包、远程内容等高风险输入
 
 ### 每条样本至少需要什么
@@ -670,17 +666,17 @@ Day 4 到这里就足够。
 
 ## 第 8 层：Day 4 不建议做什么
 
-### 不要把“多格式支持”理解成“无限制上传”
+### 不要把“放开格式限制”理解成“任何文件都保证成功”
 
-用了 MarkItDown 也不代表什么都应该收。  
+用了 MarkItDown 也不代表任何文件都一定能被抽取。  
 Day 4 仍然应该坚持：
 
-- 格式白名单
 - 文件大小限制
 - 依赖可用性检查
 - 转换失败时的明确错误
+- 高风险输入类型的单独策略
 
-今天做的是“受控多格式”，不是“开放任意格式”。
+今天做的是“放开前置白名单，让 MarkItDown 尝试抽取”，不是“承诺所有文件都能成功”。
 
 ### 不要今天就把文本预处理做满
 
@@ -727,8 +723,8 @@ Day 4 的重点是接主链，不是改目录历史。
 
 ## 可选增强：MarkItDown 放在哪里更合适
 
-如果 Day 4 就决定把上传入口从“两个格式”升级成“受控多格式”，  
-那么可以直接把 Microsoft 的 `MarkItDown` 纳入导入设计里，作为 Office / PDF / HTML 这类文件的抽取 adapter。
+如果 Day 4 就决定把上传入口从“两个格式”升级成“尽量交给 MarkItDown 抽取”，  
+那么可以直接把 Microsoft 的 `MarkItDown` 纳入导入设计里，作为非 CSV / JSON 文件的通用抽取 adapter。
 
 但它在这个项目里更适合放在：
 
@@ -750,13 +746,13 @@ Day 4 的重点是接主链，不是改目录历史。
 而是这样分工：
 
 - CSV / JSON：继续走原生 parser
-- PDF / DOCX / PPTX / XLSX / HTML：走 MarkItDown adapter
+- 其它格式：走 MarkItDown adapter 尝试解析
 - 统一输出：`normalized payload`
 
 也就是说，Day 4 现在可以升级成：
 
 ```text
-受控白名单格式
+上传文件
 -> native adapter / markitdown adapter
 -> normalized payload
 -> dataset
@@ -773,7 +769,6 @@ Day 4 的重点是接主链，不是改目录历史。
 
 ### Day 4 接入它时仍然要保留哪些限制
 
-- `SUPPORTED_IMPORT_TYPES` 白名单
 - 依赖可用性检查
 - 单文件大小限制
 - 转换失败时的明确错误响应
@@ -781,7 +776,7 @@ Day 4 的重点是接主链，不是改目录历史。
 
 也就是说：
 
-> MarkItDown 可以进入 Day 4 设计，但必须作为“受控白名单 + adapter 分流”方案的一部分，而不是“无限制上传”的理由。
+> MarkItDown 可以进入 Day 4 设计，但必须作为“原生 adapter + MarkItDown adapter 分流”方案的一部分，而不是“任何文件都保证成功”的承诺。
 
 ---
 
@@ -791,20 +786,23 @@ Day 4 的重点是接主链，不是改目录历史。
 而是准备把代码也按这个方案落下去，  
 那更稳的推进顺序应该是下面这 6 步。
 
-### 步骤 1：先定受控白名单
+### 步骤 1：先定 adapter 分流规则
 
 先在配置或 service 层明确：
 
 ```text
-SUPPORTED_IMPORT_TYPES
-= .csv .json .pdf .docx .pptx .xlsx .html
+NATIVE_IMPORT_TYPES
+= .csv .json
+
+其他后缀
+= MarkItDown adapter
 ```
 
 这一步先解决的是：
 
-- 哪些格式允许上传
-- 哪些格式现在就支持
-- 哪些格式以后再加
+- 哪些格式走原生结构化解析
+- 哪些格式走 MarkItDown 文本抽取
+- MarkItDown 失败时怎样返回清晰错误
 
 ### 步骤 2：先安装并验证 MarkItDown 依赖
 
@@ -880,7 +878,6 @@ pdf/docx/pptx/xlsx/html
 如果接了 MarkItDown，  
 错误类型至少要分清这几类：
 
-- 扩展名不在白名单
 - 当前环境缺依赖
 - 文件可读但抽取失败
 - 抽取成功但没有有效内容
@@ -942,7 +939,7 @@ Day 3 立的是骨架
 
 1. 为什么 Day 4 的重点不是“分析”，而是“输入如何变成任务”？
 2. 为什么 `/tasks/import` 和 `/tasks` 不能完全揉成一个动作？
-3. 为什么用了 MarkItDown 之后仍然要保留格式白名单？
+3. 为什么用了 MarkItDown 之后仍然要保留大小限制、依赖检查和转换失败口径？
 
 ---
 
@@ -981,7 +978,7 @@ source file
 - `CreateTaskResponse`
 - `TaskDetailResponse`
 
-如果 Day 4 按受控多格式来做，  
+如果 Day 4 按 adapter 分流来做，  
 还建议在导入输出里明确两类字段：
 
 - `file_type`
@@ -1015,7 +1012,7 @@ Day 4 验收不要看“功能数量”，
 
 今天最小验收应该围绕这 5 个问题：
 
-1. `/tasks/import` 能不能收白名单中的受支持格式？
+1. `/tasks/import` 能不能让 CSV / JSON 走原生解析，其它格式走 MarkItDown 尝试解析？
 2. 导入之后能不能返回一个清楚的 `dataset_id` 和 `extraction_mode`？
 3. `/tasks` 能不能根据 `dataset_id` 创建任务？
 4. 任务创建之后能不能返回 `task_id` 和初始状态？
@@ -1242,8 +1239,8 @@ from fastapi import UploadFile
 class TaskService:
     async def build_dataset_import(self, file: UploadFile, metadata):
         # 你要做的事：
-        # 1. 校验文件后缀是否在白名单
-        # 2. 调用抽取逻辑
+        # 1. 提取文件后缀，没有后缀时使用 bin
+        # 2. 调用抽取逻辑，CSV / JSON 走原生解析，其它格式走 MarkItDown
         # 3. 生成 dataset payload
         # 4. 返回 dataset payload + response schema
         raise NotImplementedError
@@ -1261,7 +1258,7 @@ class TaskService:
 import csv
 import json
 from datetime import datetime
-from io import StringIO
+from io import BytesIO, StringIO
 from uuid import uuid4
 
 from fastapi import HTTPException, UploadFile, status
@@ -1277,7 +1274,7 @@ from shcemas.task_schema import (
     TaskStatus,
 )
 
-SUPPORTED_IMPORT_TYPES = {"csv", "json", "pdf", "docx", "pptx", "xlsx", "html"}
+NATIVE_IMPORT_TYPES = {"csv", "json"}
 
 
 class TaskService:
@@ -1286,13 +1283,7 @@ class TaskService:
             file: UploadFile,
             metadata: ImportMetadata,
     ) -> tuple[CreateDatasetPayload, ImportDatasetResponse]:
-        suffix = (file.filename or "").split(".")[-1].lower()
-        if suffix not in SUPPORTED_IMPORT_TYPES:
-            raise HTTPException(
-                status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-                detail=f"unsupported file type: {suffix}",
-            )
-
+        suffix = self._extract_suffix(file.filename)
         file_bytes = await file.read()
         rows, extraction_mode = self._extract_rows(file_bytes=file_bytes, file_type=suffix)
 
@@ -1351,6 +1342,12 @@ class TaskService:
         )
         return task_payload, response
 
+    @staticmethod
+    def _extract_suffix(filename: str | None) -> str:
+        if not filename or "." not in filename:
+            return "bin"
+        return filename.rsplit(".", 1)[-1].lower()
+
     def _extract_rows(self, file_bytes: bytes, file_type: str) -> tuple[list[dict], str]:
         if file_type == "csv":
             return self._parse_csv(file_bytes.decode("utf-8")), "csv_adapter"
@@ -1358,11 +1355,32 @@ class TaskService:
             return self._parse_json(file_bytes.decode("utf-8")), "json_adapter"
         return self._parse_with_markitdown(file_bytes=file_bytes, file_type=file_type)
 
-    def _parse_with_markitdown(self, file_bytes: bytes, file_type: str) -> tuple[list[dict], str]:
-        # 这里代表后续接入 MarkItDown 的位置。
-        # Day 4 计划文档先把白名单和 adapter 边界立住，
-        # 真正实现时再补依赖检查、错误处理和文件大小限制。
-        markdown_text = "...converted markdown text..."
+    @staticmethod
+    def _parse_with_markitdown(file_bytes: bytes, file_type: str) -> tuple[list[dict], str]:
+        try:
+            from markitdown import MarkItDown
+        except ImportError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"markitdown support is not installed for .{file_type} files",
+            ) from exc
+
+        stream = BytesIO(file_bytes)
+        stream.name = f"upload.{file_type}"
+
+        converter = MarkItDown(enable_plugins=False)
+        try:
+            result = converter.convert_stream(stream)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"markitdown failed to parse .{file_type} file",
+            ) from exc
+
+        markdown_text = (result.text_content or "").strip()
+        if not markdown_text:
+            return [], "markitdown_adapter"
+
         rows = [
             {
                 "content": markdown_text,
@@ -1421,7 +1439,7 @@ task_service = TaskService()
 3. `TaskService` 不应该接 `session`，它只负责构建 payload 和 response  
 4. `router / service / crud` 之间传递的数据格式应该优先用 `schemas/` 里的类，而不是裸 `dict`  
 5. `create_dataset / get_dataset_by_id / create_task / get_task_detail` 这种操作应该落在 `crud/`  
-6. `SUPPORTED_IMPORT_TYPES` 是“可支持格式”的工程边界，不是装了 MarkItDown 就无限制放开  
+6. `NATIVE_IMPORT_TYPES` 只标记原生结构化解析入口，其它格式交给 MarkItDown 尝试抽取  
 7. Day 5 仍然接的是统一后的 dataset，不把清洗和标准化提前写满
 
 ---
@@ -1618,7 +1636,7 @@ Day 5 会开始进入：
 1. Day 4 的本质为什么是“输入变任务”，不是“分析做深”？
 2. 为什么导入动作和任务创建动作不能完全混在一个黑盒接口里？
 3. `dataset_id` 为什么值得先立住？
-4. 为什么用了 MarkItDown 也仍然要保留格式白名单和大小限制？
+4. 为什么用了 MarkItDown 也仍然要保留大小限制、依赖检查和失败口径？
 5. 为什么 `router/tasks.py` 不该直接堆业务逻辑？
 6. 为什么 `get_task_detail` 这种读操作不能直接堆在 service 里查表？
 7. 今天的任务状态为什么先以 `pending` / `queued` 为主？
@@ -1633,7 +1651,7 @@ Day 5 会开始进入：
 - `/tasks` 的职责和输入输出边界讲清楚
 - `shcemas/task_schema.py` 的最小设计讲清楚
 - `models/`、`crud/`、`services/task_service.py` 的分层职责讲清楚
-- 受控多格式白名单和 `MarkItDown adapter` 的边界讲清楚
+- 原生 adapter 和 `MarkItDown adapter` 的分流边界讲清楚
 - `dataset_id -> task_id` 这条中间链路讲清楚
 - Day 5 的预处理输入已经准备好
 
@@ -1654,19 +1672,19 @@ Day 5 会开始进入：
 - 先导入，拿到 `dataset_id`
 - 再创建任务，拿到 `task_id`
 
-### 坑 1.5：把 MarkItDown 理解成“什么都可以传”
+### 坑 1.5：把 MarkItDown 理解成“什么都能成功解析”
 
 问题：
 
-- 非白名单格式也会混进来
+- 文件可以进入 MarkItDown，但不代表一定能抽取出有效文本
 - 环境没装依赖时错误不清楚
 - 大文件和压缩包会把导入边界打穿
 
 规避建议：
 
-- 明确 `SUPPORTED_IMPORT_TYPES`
+- 明确 CSV / JSON 原生解析，其它格式交给 MarkItDown 尝试
 - 明确大小限制和依赖检查
-- 不支持的格式直接返回 415 或清晰错误
+- MarkItDown 解析失败时返回清晰错误
 
 ### 坑 2：在 router 里直接写解析逻辑
 
