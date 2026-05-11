@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     LLM_BASE_URL: str = ""
     LLM_MODEL_NAME: str = ""
 
+    # sentiment
+    SENTIMENT_MODEL_NAME: str = "IDEA-CCNL/Erlangshen-Roberta-330M-Sentiment"
+    SENTIMENT_NEUTRAL_THRESHOLD: float = 0.65
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

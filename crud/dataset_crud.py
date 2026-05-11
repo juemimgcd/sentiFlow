@@ -5,6 +5,7 @@ from models.dataset_model import Dataset
 from shcemas.task_schema import CreateDatasetPayload
 
 
+# 新建数据集记录并刷新数据库状态。
 async def create_dataset(session: AsyncSession, payload: CreateDatasetPayload) -> Dataset:
     dataset = Dataset(**payload.model_dump())
     session.add(dataset)
@@ -13,6 +14,7 @@ async def create_dataset(session: AsyncSession, payload: CreateDatasetPayload) -
     return dataset
 
 
+# 根据数据集 ID 查询数据集记录。
 async def get_dataset_by_id(session: AsyncSession, dataset_id: str) -> Dataset | None:
     stmt = select(Dataset).where(Dataset.dataset_id == dataset_id)
     result = await session.execute(stmt)
@@ -20,6 +22,7 @@ async def get_dataset_by_id(session: AsyncSession, dataset_id: str) -> Dataset |
 
 
 
+# 更新数据集的预处理统计摘要。
 async def update_dataset_preprocess_summary(
         session: AsyncSession,
         dataset_id: str,

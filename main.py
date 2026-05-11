@@ -12,6 +12,7 @@ from router.tasks import router as tasks_router
 
 
 @asynccontextmanager
+# 管理应用启动和关闭时的资源生命周期。
 async def lifespan(_: FastAPI):
     setup_logger()
     app_logger.bind(module="system").info("application starts")
@@ -25,6 +26,7 @@ async def lifespan(_: FastAPI):
         await close_db()
 
 
+# 创建并配置 FastAPI 应用实例。
 def create_app() -> FastAPI:
     app = FastAPI(
         title=settings.APP_NAME,

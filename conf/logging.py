@@ -6,6 +6,7 @@ from conf.settings import settings
 
 
 
+# 配置应用统一使用的日志输出格式。
 def setup_logger():
     logger.remove()
 

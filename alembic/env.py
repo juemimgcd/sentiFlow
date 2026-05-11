@@ -32,6 +32,7 @@ target_metadata = Base.metadata
 # ... etc.
 
 
+# 以离线模式运行数据库迁移。
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
 
@@ -56,6 +57,7 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
+# 在同步连接中执行迁移上下文。
 def do_run_migrations(connection: Connection) -> None:
     context.configure(connection=connection, target_metadata=target_metadata)
 
@@ -63,6 +65,7 @@ def do_run_migrations(connection: Connection) -> None:
         context.run_migrations()
 
 
+# 创建异步数据库连接并运行迁移。
 async def run_async_migrations() -> None:
     """In this scenario we need to create an Engine
     and associate a connection with the context.
@@ -81,6 +84,7 @@ async def run_async_migrations() -> None:
     await connectable.dispose()
 
 
+# 以在线模式运行数据库迁移。
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode."""
 

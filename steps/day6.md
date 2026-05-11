@@ -131,11 +131,11 @@ Day 6 不解决的是：
 
 | 位置 | Day 6 负责什么 | Day 6 不负责什么 |
 | --- | --- | --- |
-| `router/tasks.py` | 提供触发情感分析和查看情感结果的 HTTP 入口 | 写分类规则细节 |
+| `router/tasks.py` | 提供触发情感分析和查看情感结果的 HTTP 入口 | 写模型推理细节 |
 | `services/preprocess_service.py` | 提供有效标准样本读取能力 | 直接做情感分类 |
 | `services/sentiment_service.py` | 编排情感分类、样本结果构建和任务级聚合 | 直接写 SQL |
 | `shcemas/sentiment_schema.py` | 定义样本级结果和任务级结果模型 | 持有业务流程 |
-| `crud/task_crud.py` | 回写情感状态、计数和摘要 | 直接做分类 |
+| `crud/task_crud.py` | 回写情感状态、计数和摘要 | 直接做模型推理 |
 | `models/task_model.py` | 为 Day 6 的情感结果留持久字段 | 承担情感分析判断 |
 | `utils/` | 最多放很小的纯辅助函数 | 不承担核心情感业务逻辑 |
 
@@ -413,8 +413,8 @@ Day 6 的目标是先把第一类结果稳定下来，
 
 ## 第 5 层：Day 6 最小情感分析步骤应该先有哪些
 
-Day 6 最稳的做法，不是一次引入最复杂的模型编排。  
-而是先把最小、最有价值、最可解释的步骤立住。
+Day 6 最稳的做法，不是继续维护中文情绪词表。  
+而是先把“标准样本 -> 预训练情感模型 -> 结构化结果”这条主链立住。
 
 ### 步骤 1：读取有效样本
 
@@ -433,6 +433,13 @@ Day 6 最稳的做法，不是一次引入最复杂的模型编排。
 - `negative`
 
 这是当前 MVP 最稳的起点。
+
+如果选择 Hugging Face 预训练模型，今天要先接受一个现实：
+
+- 很多中文情感模型是正负二分类
+- 项目内部仍然需要保留 `neutral`
+- 可以先用置信度阈值把低置信度样本归为 `neutral`
+- 第一次运行时模型会自动下载并缓存，后续启动优先走本地缓存
 
 ### 步骤 3：构建样本级结果
 
@@ -846,9 +853,29 @@ Day 6、Day 7、Day 8 都能沿着同一条标准样本主线继续往下走。
 
 ## 15:20 - 16:20：在 `services/sentiment_service.py` 里立住主链
 
+在写 service 前，今天要先在项目配置里留出两个最小配置：
+
+```python
+SENTIMENT_MODEL_NAME: str = "IDEA-CCNL/Erlangshen-Roberta-330M-Sentiment"
+SENTIMENT_NEUTRAL_THRESHOLD: float = 0.65
+```
+
+依赖层面至少需要：
+
+```text
+transformers
+torch
+```
+
+这两个依赖只负责模型推理能力。  
+不要因为接了模型，就把 Day 6 扩成模型训练、模型评测和模型管理平台。
+
 建议先补：
 
+- `__init__(...)`
 - `classify_sample(...)`
+- `_get_classifier(...)`
+- `_map_model_label(...)`
 - `build_sample_results(...)`
 - `build_task_summary(...)`
 - `run_sentiment(...)`
@@ -856,16 +883,42 @@ Day 6、Day 7、Day 8 都能沿着同一条标准样本主线继续往下走。
 ### `services/sentiment_service.py` 练手骨架版
 
 ```python
+from typing import Any
+
 from shcemas.preprocess_schema import NormalizedSample
+from shcemas.sentiment_schema import SentimentLabel
 
 
 class SentimentService:
+    def __init__(self) -> None:
+        # 你要做的事：
+        # 1. 准备一个 classifier 缓存位置
+        # 2. 不要在初始化阶段立刻下载模型
+        # 3. 让第一次真实分类时再懒加载模型
+        raise NotImplementedError
+
     def classify_sample(self, sample: NormalizedSample):
         # 你要做的事：
-        # 1. 读取单条标准样本的文本
-        # 2. 给出情感标签
-        # 3. 给出一个最小分数
-        # 4. 给出一个极简原因
+        # 1. 读取单条标准样本的清洗文本
+        # 2. 调用 Hugging Face 情感分类模型
+        # 3. 根据置信度阈值决定是否归为 neutral
+        # 4. 把模型原始标签映射为项目内部标签
+        raise NotImplementedError
+
+    def _get_classifier(self):
+        # 你要做的事：
+        # 1. 如果 classifier 已存在，直接复用
+        # 2. 如果不存在，再导入 transformers.pipeline
+        # 3. 使用配置里的模型名创建 text-classification pipeline
+        # 4. 返回可复用的 classifier
+        raise NotImplementedError
+
+    def _map_model_label(self, raw_label: str) -> SentimentLabel:
+        # 你要做的事：
+        # 1. 接收模型返回的原始 label
+        # 2. 兼容 positive / negative / LABEL_0 / LABEL_1 等形式
+        # 3. 转成 SentimentLabel
+        # 4. 未识别时保守归为 neutral
         raise NotImplementedError
 
     def build_sample_results(self, samples: list[NormalizedSample]):
@@ -895,7 +948,9 @@ class SentimentService:
 
 ```python
 from collections import Counter
+from typing import Any
 
+from conf.settings import settings
 from shcemas.preprocess_schema import NormalizedSample
 from shcemas.sentiment_schema import (
     SampleSentimentResult,
@@ -906,17 +961,47 @@ from shcemas.sentiment_schema import (
 
 
 class SentimentService:
+    def __init__(self) -> None:
+        self.classifier: Any | None = None
+
     def classify_sample(self, sample: NormalizedSample) -> tuple[SentimentLabel, float, str]:
-        text = sample.content_clean
+        text = sample.content_clean.strip()
+        if not text:
+            return SentimentLabel.neutral, 0.0, "空文本，默认中性"
 
-        negative_hits = ["差", "失望", "投诉", "慢", "问题", "不好"]
-        positive_hits = ["好", "满意", "推荐", "喜欢", "不错", "赞"]
+        result = self._get_classifier()(text)[0]
+        raw_label = str(result["label"])
+        score = float(result["score"])
 
-        if any(token in text for token in negative_hits):
-            return SentimentLabel.negative, 0.82, "包含明显负向表达"
-        if any(token in text for token in positive_hits):
-            return SentimentLabel.positive, 0.79, "包含明显正向表达"
-        return SentimentLabel.neutral, 0.55, "情绪表达较弱或偏描述性"
+        if score < settings.SENTIMENT_NEUTRAL_THRESHOLD:
+            return SentimentLabel.neutral, score, "模型置信度较低，归为中性"
+
+        label = self._map_model_label(raw_label)
+        return label, score, f"{settings.SENTIMENT_MODEL_NAME} 模型预测"
+
+    def _get_classifier(self):
+        if self.classifier is None:
+            try:
+                from transformers import pipeline
+            except ImportError as exc:
+                raise RuntimeError(
+                    "缺少 transformers/torch 依赖，请先安装项目依赖后再运行情感分析"
+                ) from exc
+
+            self.classifier = pipeline(
+                "text-classification",
+                model=settings.SENTIMENT_MODEL_NAME,
+            )
+        return self.classifier
+
+    @staticmethod
+    def _map_model_label(raw_label: str) -> SentimentLabel:
+        label = raw_label.lower()
+        if label in {"positive", "pos", "label_1", "1"}:
+            return SentimentLabel.positive
+        if label in {"negative", "neg", "label_0", "0"}:
+            return SentimentLabel.negative
+        return SentimentLabel.neutral
 
     def build_sample_results(
         self,
@@ -942,7 +1027,19 @@ class SentimentService:
         results: list[SampleSentimentResult],
     ) -> TaskSentimentSummary:
         counter = Counter(item.sentiment_label for item in results)
-        total = len(results) or 1
+        total = len(results)
+        if total == 0:
+            return TaskSentimentSummary(
+                task_id=task_id,
+                total_samples=0,
+                positive_count=0,
+                neutral_count=0,
+                negative_count=0,
+                positive_ratio=0.0,
+                neutral_ratio=0.0,
+                negative_ratio=0.0,
+                dominant_sentiment=SentimentLabel.neutral,
+            )
 
         positive_count = counter.get(SentimentLabel.positive, 0)
         neutral_count = counter.get(SentimentLabel.neutral, 0)
@@ -989,8 +1086,8 @@ sentiment_service = SentimentService()
 ### 这里要先理解的点
 
 1. Day 6 的核心是先把“标准样本 -> 情感结果”这层变成独立主链  
-2. 这里先用最小可解释规则示例，是为了把结果契约和聚合主链立住  
-3. 后面即使替换成模型调用，`SampleSentimentResult` 和 `TaskSentimentSummary` 这层边界仍然应该稳定  
+2. 这里直接使用 Hugging Face 预训练模型，是为了避免继续维护中文情绪词表穷举  
+3. 即使后面替换成自训练模型，`SampleSentimentResult` 和 `TaskSentimentSummary` 这层边界仍然应该稳定  
 4. `preview_results` 的价值很大，它给任务详情页和调试都留了稳定入口  
 5. Day 7 要消费的，是情感结果 + 标准样本，而不是重新判一遍输入情绪  
 
@@ -1212,9 +1309,10 @@ Day 7 会开始进入：
 
 规避建议：
 
-- 先做三分类
-- 先做结构化结果
-- 复杂模型后面逐步替换
+- 先用一个 Hugging Face 预训练模型接住 `classify_sample`
+- 先用置信度阈值补上项目需要的 `neutral`
+- 不在 Day 6 做训练平台、评测平台和多模型路由
+- 后面有标注数据后，再替换成项目自训练模型
 
 ---
 
