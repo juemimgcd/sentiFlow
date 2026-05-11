@@ -127,10 +127,10 @@ async def run_task_topic_analysis(task_id: str, db=Depends(get_db)):
         return error_response(message="dataset not found", code=1, data=None)
 
     samples = preprocess_service.get_valid_samples(dataset=dataset)
-    sentiment_response = sentiment_service.run_sentiment(task_id=task_id, samples=samples)
+    sentiment_results = sentiment_service.build_sample_results(samples=samples)
     sentiment_map = {
         item.sample_id: item
-        for item in sentiment_response.preview_results
+        for item in sentiment_results
     }
     response = topic_service.run_topic_analysis(
         task_id=task_id,

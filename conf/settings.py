@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     DASHSCOPE_API_KEY: str = ""
     LLM_BASE_URL: str = ""
     LLM_MODEL_NAME: str = ""
+    LLM_TIMEOUT_SECONDS: int = 30
 
     # sentiment
     SENTIMENT_MODEL_NAME: str = "IDEA-CCNL/Erlangshen-Roberta-330M-Sentiment"
