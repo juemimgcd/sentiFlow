@@ -18,11 +18,13 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+# 应用本次数据库结构升级。
 def upgrade() -> None:
     """Upgrade schema."""
     pass
 
 
+# 回滚本次数据库结构升级。
 def downgrade() -> None:
     """Downgrade schema."""
     pass
