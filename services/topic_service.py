@@ -6,6 +6,7 @@ from shcemas.topic_schema import SampleTopicResult, TaskKeywordSummary, TaskTopi
 
 
 class TopicService:
+    # 从单条样本中提取主题关键词和风险词。
     def extract_keywords(self, sample: NormalizedSample):
         # 你要做的事：
         # 1. 读取单条标准样本文本
@@ -24,6 +25,7 @@ class TopicService:
         return keywords, risk_keywords
 
 
+    # 根据文本和关键词判断样本主题分类。
     def classify_topic(
             self,
             sample: NormalizedSample,
@@ -41,6 +43,7 @@ class TopicService:
             return "服务售后", "命中服务与售后相关表达"
         return "通用反馈", "未命中更细主题，先归入通用反馈"
 
+    # 生成样本级主题分析结果列表。
     def build_sample_topic_results(
             self,
             samples: list[NormalizedSample],
@@ -71,6 +74,7 @@ class TopicService:
             )
         return results
 
+    # 汇总任务级关键词统计信息。
     def build_keyword_summary(
             self,
             task_id: str,
@@ -92,6 +96,7 @@ class TopicService:
             keyword_frequency=dict(counter),
         )
 
+    # 汇总任务级主题分布信息。
     def build_topic_summary(
             self,
             task_id: str,
@@ -106,6 +111,7 @@ class TopicService:
             dominant_topic=dominant_topic,
         )
 
+    # 运行主题分析并组装统一响应。
     def run_topic_analysis(
             self,
             task_id: str,

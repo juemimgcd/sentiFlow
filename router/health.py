@@ -6,6 +6,7 @@ router = APIRouter(prefix="/health", tags=["health"])
 
 
 @router.get("")
+# 返回服务健康检查结果。
 def health_check():
 
     return success_response(

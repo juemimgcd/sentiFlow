@@ -18,6 +18,7 @@ router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 
 @router.post("/import")
+# 处理上传文件并导入任务数据集。
 async def import_task_data(
     file: UploadFile = File(...),
     source_platform: str = Form(...),
@@ -39,6 +40,7 @@ async def import_task_data(
 
 
 @router.post("")
+# 创建基于数据集的分析任务。
 async def create_task_endpoint(payload: CreateTaskRequest, db=Depends(get_db)):
     dataset = await get_dataset_by_id(session=db, dataset_id=payload.dataset_id)
     if dataset is None:
@@ -51,6 +53,7 @@ async def create_task_endpoint(payload: CreateTaskRequest, db=Depends(get_db)):
 
 
 @router.get("/{task_id}")
+# 查询指定任务的详情信息。
 async def get_task_detail_endpoint(task_id: str, db=Depends(get_db)):
     task = await get_task_detail(session=db, task_id=task_id)
     if task is None:
@@ -72,6 +75,7 @@ async def get_task_detail_endpoint(task_id: str, db=Depends(get_db)):
 
 
 @router.post("/{task_id}/preprocess")
+# 执行指定任务的数据预处理流程。
 async def preprocess_task(task_id: str, db=Depends(get_db)):
     task = await get_task_detail(session=db, task_id=task_id)
     if task is None:
@@ -91,6 +95,7 @@ async def preprocess_task(task_id: str, db=Depends(get_db)):
 
 
 @router.post("/{task_id}/sentiment")
+# 执行指定任务的情感分析流程。
 async def run_task_sentiment(task_id: str, db=Depends(get_db)):
     task = await get_task_detail(session=db, task_id=task_id)
     if task is None:
@@ -111,6 +116,7 @@ async def run_task_sentiment(task_id: str, db=Depends(get_db)):
 
 
 @router.post("/{task_id}/topics")
+# 执行指定任务的主题分析流程。
 async def run_task_topic_analysis(task_id: str, db=Depends(get_db)):
     task = await get_task_detail(session=db, task_id=task_id)
     if task is None:

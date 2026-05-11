@@ -18,11 +18,13 @@ branch_labels: Union[str, Sequence[str], None] = ${repr(branch_labels)}
 depends_on: Union[str, Sequence[str], None] = ${repr(depends_on)}
 
 
+# 应用模板生成的数据库结构升级。
 def upgrade() -> None:
     """Upgrade schema."""
     ${upgrades if upgrades else "pass"}
 
 
+# 回滚模板生成的数据库结构升级。
 def downgrade() -> None:
     """Downgrade schema."""
     ${downgrades if downgrades else "pass"}

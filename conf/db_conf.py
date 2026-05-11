@@ -18,11 +18,13 @@ SessionLocal = async_sessionmaker(
 )
 
 
+# 关闭数据库引擎连接池。
 async def close_db():
     await engine.dispose()
 
 
 @asynccontextmanager
+# 创建带回滚和关闭逻辑的数据库会话上下文。
 async def db_session():
     async with SessionLocal() as session:
         try:
@@ -34,6 +36,7 @@ async def db_session():
             await session.close()
 
 
+# 为接口依赖提供数据库会话。
 async def get_db():
     async with db_session() as session:
         yield session
