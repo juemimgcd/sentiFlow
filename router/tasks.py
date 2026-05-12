@@ -90,10 +90,6 @@ async def preprocess_task(task_id: str, db=Depends(get_db)):
 
 
 
-
-
-
-
 @router.post("/{task_id}/sentiment")
 # 执行指定任务的情感分析流程。
 async def run_task_sentiment(task_id: str, db=Depends(get_db)):
@@ -108,9 +104,6 @@ async def run_task_sentiment(task_id: str, db=Depends(get_db)):
     samples = preprocess_service.get_valid_samples(dataset=dataset)
     response = sentiment_service.run_sentiment(task_id=task_id, samples=samples)
     return success_response(data=response.model_dump(), message="sentiment completed")
-
-
-
 
 
 
@@ -138,3 +131,47 @@ async def run_task_topic_analysis(task_id: str, db=Depends(get_db)):
         sentiment_map=sentiment_map,
     )
     return success_response(data=response.model_dump(), message="topic analysis completed")
+
+
+
+from crud.task_crud import create_task, get_task_detail, update_task_status
+from services.queue_service import queue_service
+
+
+
+@router.post("")
+async def create_task_endpoint(payload: CreateTaskRequest, db=Depends(get_db)):
+    dataset = await get_dataset_by_id(session=db, dataset_id=payload.dataset_id)
+    if dataset is None:
+        return error_response(message="dataset not found", code=1, data=None)
+
+    task_payload, response_data = task_service.build_task_create_payload(
+        dataset=dataset,
+        payload=payload,
+    )
+    await create_task(session=db, payload=task_payload)
+    await db.commit()
+
+    enqueue_response = await queue_service.enqueue_analysis_task(
+        task_id=response_data.task_id,
+        dataset_id=response_data.dataset_id,
+    )
+    await update_task_status(
+        session=db,
+        task_id=response_data.task_id,
+        status=TaskStatus.queued,
+    )
+    await db.commit()
+
+    response_data.status = TaskStatus.queued
+    return success_response(
+        data={
+            "task": response_data.model_dump(),
+            "queue": enqueue_response.model_dump(),
+        },
+        message="task queued",
+    )
+
+
+
+
