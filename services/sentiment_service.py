@@ -12,6 +12,8 @@ from shcemas.sentiment_schema import (
 
 
 class SentimentService:
+    """负责调用情感模型并汇总样本级、任务级情感分析结果。"""
+
     def __init__(self) -> None:
         # 延迟加载模型，避免应用启动时立刻触发 Hugging Face 下载。
         self.classifier: Any | None = None
