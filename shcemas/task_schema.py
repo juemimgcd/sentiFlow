@@ -5,6 +5,8 @@ from pydantic import BaseModel, Field
 
 
 class TaskStatus(str, Enum):
+    """分析任务生命周期状态。"""
+
     pending = "pending"
     queued = "queued"
     running = "running"
@@ -14,6 +16,8 @@ class TaskStatus(str, Enum):
 
 
 class ImportMetadata(BaseModel):
+    """数据集导入时提交的业务元信息。"""
+
     source_platform: str = Field(..., description="来源平台")
     product_line: str | None = Field(default=None, description="产品线")
     date_start: date | None = Field(default=None, description="起始日期")
@@ -21,6 +25,8 @@ class ImportMetadata(BaseModel):
 
 
 class ImportDatasetResponse(BaseModel):
+    """数据集导入接口返回的预览和元信息。"""
+
     dataset_id: str
     file_name: str
     file_type: str
@@ -31,11 +37,15 @@ class ImportDatasetResponse(BaseModel):
 
 
 class CreateTaskRequest(BaseModel):
+    """创建分析任务的请求参数。"""
+
     dataset_id: str
     task_name: str = Field(..., min_length=1, description="任务名称")
 
 
 class CreateDatasetPayload(BaseModel):
+    """写入数据集记录所需的内部载荷。"""
+
     dataset_id: str
     file_name: str
     file_type: str
@@ -49,6 +59,8 @@ class CreateDatasetPayload(BaseModel):
 
 
 class CreateTaskPayload(CreateTaskRequest):
+    """写入任务记录所需的内部载荷。"""
+
     task_id: str
     status: TaskStatus
     sample_count: int
@@ -58,6 +70,8 @@ class CreateTaskPayload(CreateTaskRequest):
 
 
 class CreateTaskResponse(BaseModel):
+    """创建分析任务接口的返回结构。"""
+
     task_id: str
     dataset_id: str
     status: TaskStatus
@@ -65,6 +79,8 @@ class CreateTaskResponse(BaseModel):
 
 
 class TaskDetailResponse(BaseModel):
+    """任务详情接口的返回结构。"""
+
     task_id: str
     dataset_id: str
     task_name: str

@@ -3,6 +3,7 @@ name = "sentiflow"
 version = "0.1.0"
 requires-python = ">=3.13"
 dependencies = [
+    "aio-pika>=9.6.2",
     "alembic>=1.18.4",
     "asyncpg>=0.31.0",
     "fastapi==0.136.1",
@@ -19,5 +20,5 @@ dependencies = [
 ]
 
 [[tool.uv.index]]
-url = "https://pypi.org/simple/"
+url = "https://pypi.tuna.tsinghua.edu.cn/simple"
 default = true

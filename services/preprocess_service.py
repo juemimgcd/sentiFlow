@@ -14,6 +14,8 @@ from utils.text_cleaner import clean_text, is_meaningful_text
 
 
 class PreprocessService:
+    """负责从数据集中加载原始样本并执行文本清洗、标准化和统计汇总。"""
+
     # 从数据集中加载原始文本样本。
     def load_raw_samples(self, dataset: Dataset) -> list[RawSample]:
         raw_text = (dataset.raw_text or "").strip()
@@ -63,6 +65,15 @@ class PreprocessService:
             preview_samples=valid_samples[:3],
             processed_at=datetime.utcnow(),
         )
+
+    # 获取清洗标准化后的有效样本，供情感分析和主题分析复用。
+    def get_valid_samples(self, dataset: Dataset) -> list[NormalizedSample]:
+        raw_samples = self.load_raw_samples(dataset)
+        normalized_samples = [
+            self.normalize_sample(dataset=dataset, sample=sample)
+            for sample in raw_samples
+        ]
+        return [sample for sample in normalized_samples if sample.is_valid]
 
     # 执行任务对应数据集的完整预处理流程。
     def run_preprocess(self, task_id: str, dataset: Dataset) -> PreprocessResponse:

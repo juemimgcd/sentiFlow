@@ -21,6 +21,8 @@ NATIVE_IMPORT_TYPES = {"csv", "json"}
 
 
 class TaskService:
+    """负责数据集导入解析和分析任务创建所需的载荷组装。"""
+
     # 解析上传文件并构建数据集导入载荷。
     async def build_dataset_import(
         self,

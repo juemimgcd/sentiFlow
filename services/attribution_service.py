@@ -17,6 +17,8 @@ from shcemas.topic_schema import SampleTopicResult
 
 
 class AttributionService:
+    """负责基于主题分析结果进行问题归因、风险评分和代表样本筛选。"""
+
     category_values = tuple(category.value for category in IssueCategory)
 
     def classify_issue(self, item: SampleTopicResult) -> tuple[IssueCategory, str]:
