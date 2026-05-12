@@ -11,6 +11,8 @@ from shcemas.topic_schema import SampleTopicResult, TaskKeywordSummary, TaskTopi
 
 
 class TopicService:
+    """负责样本主题识别、关键词提取和任务级主题汇总。"""
+
     # 调用 LLM 获取单条样本的主题分析结果。
     def analyze_sample(self, sample: NormalizedSample) -> dict[str, Any]:
         if not settings.LLM_BASE_URL or not settings.LLM_MODEL_NAME:
